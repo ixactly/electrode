@@ -2,7 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import practice as pde
+import electro_module as pde
 import pickle
 from matplotlib import cm
 

@@ -11,7 +11,7 @@ class CartesianGrid:                                                            
         Simple class to generate a computational grid and apply boundary conditions
     """
 
-    def __init__(self, nx=150, ny=150, nz=150, xmin=-21, xmax=21, ymin=-21, ymax=21, zmin=-35, zmax=30):
+    def __init__(self, nx=150, ny=150, nz=150, xmin=-21, xmax=21, ymin=-21, ymax=21, zmin=-5, zmax=35):
         self.nx, self.ny, self.nz = nx, ny, nz
         self.ntotal = nx*ny*nz
 
@@ -68,22 +68,21 @@ class CartesianGrid:                                                            
         Z = Z.reshape(1, self.nx, self.ny)
         return Z
 
-    def make_cylinder(self, a, b, c, d, z1, z2, z3, z4):
-        Zeros = np.zeros((1, self.nx, self.ny))
-        Z_new = np.zeros((1, self.nx, self.ny))
-        for i in range(int(self.nz*z1/(self.zmax - self.zmin))):
-            Z_new = np.vstack((Z_new, Zeros))
-
-        for i in range(int(self.nz*z1/(self.zmax - self.zmin)), int(self.nz*z2/(self.zmax - self.zmin))):
-            Z_new = np.vstack((Z_new, a))
-
-        for i in range(int(self.nz*z2/(self.zmax - self.zmin)), int(self.nz*z3/(self.zmax - self.zmin))):
+    def make_cylinder(self, a, b, c, d, e, z1, z2, z3, z4):
+        Z_new = e
+        for i in range(int(self.nz*(z1-self.zmin)/(self.zmax - self.zmin))):
             Z_new = np.vstack((Z_new, b))
 
-        for i in range(int(self.nz*z3/(self.zmax - self.zmin)), int(self.nz*z4/(self.zmax - self.zmin))):
+        for i in range(int(self.nz*(z1-self.zmin)/(self.zmax - self.zmin)), int(self.nz*(z2-self.zmin)/(self.zmax - self.zmin))):
+            Z_new = np.vstack((Z_new, a))
+
+        for i in range(int(self.nz*(z2-self.zmin)/(self.zmax - self.zmin)), int(self.nz*(z3-self.zmin)/(self.zmax - self.zmin))):
+            Z_new = np.vstack((Z_new, b))
+
+        for i in range(int(self.nz*(z3-self.zmin)/(self.zmax - self.zmin)), int(self.nz*(z4-self.zmin)/(self.zmax - self.zmin))):
             Z_new = np.vstack((Z_new, c))
 
-        for i in range(int(self.nz*z4/(self.zmax - self.zmin)), int(self.nz)):
+        for i in range(int(self.nz*(z4-self.zmin)/(self.zmax - self.zmin)), int(self.nz)-1):
             Z_new = np.vstack((Z_new, d))
 
         return Z_new
@@ -94,30 +93,269 @@ class CartesianGrid:                                                            
     def convert_to_3d_array(self, x):
         return x.reshape(self.nx, self.ny, self.nz)
 
+class coordinate:
+    def __init__(self, i, j, k, mesh):
+        self.p = i*mesh.nx*mesh.ny + j*mesh.nx + k
+        self.ip1 = (i+1)*mesh.nx*mesh.ny + j*mesh.nx + k
+        self.im1 = (i-1)*mesh.nx*mesh.ny + j*mesh.nx + k
+        self.jp1 = i*mesh.nx*mesh.ny + (j+1)*mesh.nx + k
+        self.jm1 = i*mesh.nx*mesh.ny + (j-1)*mesh.nx + k
+        self.kp1 = i*mesh.nx*mesh.ny + j*mesh.nx + (k+1)
+        self.km1 = i*mesh.nx*mesh.ny + j*mesh.nx + (k-1)
+
 def calc_jacobi_matrix(mesh, Z):
     """
         Create sparse matrix for Jacobi method
     """
 
     A = lil_matrix((mesh.ntotal, mesh.ntotal))
-
+    i, j, k = 0, 0, 0
     for i in range(1, mesh.nz-1):
         for j in range(1, mesh.ny-1):
             for k in range(1, mesh.nx-1):
+                p = coordinate(i, j, k, mesh)
 
-                p = i*mesh.nz**2 + j*mesh.nx + k
-                p_ip1 = (i+1)*mesh.nz**2 + j*mesh.nx + k
-                p_im1 = (i-1)*mesh.nz**2 + j*mesh.nx + k
-                p_jp1 = i*mesh.nz**2 + (j+1)*mesh.nx + k
-                p_jm1 = i*mesh.nz**2 + (j-1)*mesh.nx + k
-                p_kp1 = i*mesh.nz**2 + j*mesh.nx + (k+1)
-                p_km1 = i*mesh.nz**2 + j*mesh.nx + (k-1)
                 if Z[i, j, k] != 0:                                             #0の時はe-10などで近似して、なんとかする
-                    A[p, p] = 1.0
+                    A[p.p, p.p] = 1.0
 
                 else:
-                    A[]
-            return A.tocsc()
+                    A[p.p, p.ip1] = 1/6
+                    A[p.p, p.im1] = 1/6
+                    A[p.p, p.jp1] = 1/6
+                    A[p.p, p.jm1] = 1/6
+                    A[p.p, p.kp1] = 1/6
+                    A[p.p, p.km1] = 1/6
+
+    i, j, k = 0, 0, 0
+    p = coordinate(i, j, k, mesh)
+    A[p.p, p.ip1] = 1/6
+    A[p.p, p.jp1] = 1/6
+    A[p.p, p.kp1] = 1/6
+
+    i, j, k = mesh.nz-1, 0, 0
+    p = coordinate(i, j, k, mesh)
+    A[p.p, p.im1] = 1/6
+    A[p.p, p.jp1] = 1/6
+    A[p.p, p.kp1] = 1/6
+
+    i, j, k = 0, mesh.ny-1, 0
+    p = coordinate(i, j, k, mesh)
+    A[p.p, p.ip1] = 1/6
+    A[p.p, p.jm1] = 1/6
+    A[p.p, p.kp1] = 1/6
+
+    i, j, k = mesh.nz-1, mesh.ny-1, 0
+    p = coordinate(i, j, k, mesh)
+    A[p.p, p.im1] = 1/6
+    A[p.p, p.jm1] = 1/6
+    A[p.p, p.kp1] = 1/6
+
+    i, j, k = 0, 0, mesh.nx-1
+    p = coordinate(i, j, k, mesh)
+    A[p.p, p.ip1] = 1/6
+    A[p.p, p.jp1] = 1/6
+    A[p.p, p.km1] = 1/6
+
+    i, j, k = mesh.nz-1, 0, mesh.nx-1
+    p = coordinate(i, j, k, mesh)
+    A[p.p, p.im1] = 1/6
+    A[p.p, p.jp1] = 1/6
+    A[p.p, p.km1] = 1/6
+
+    i, j, k = 0, mesh.ny-1, mesh.nx-1
+    p = coordinate(i, j, k, mesh)
+    A[p.p, p.ip1] = 1/6
+    A[p.p, p.jm1] = 1/6
+    A[p.p, p.km1] = 1/6
+
+    i, j, k = mesh.nz-1, mesh.ny-1, mesh.nx-1
+    p = coordinate(i, j, k, mesh)
+    A[p.p, p.im1] = 1/6
+    A[p.p, p.jm1] = 1/6
+    A[p.p, p.km1] = 1/6
+
+    # (Z,Y,X) = (i,0,0)
+    i, j, k = 1, 0, 0
+    for i in range(1, mesh.nz-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.im1] = 1/6
+        A[p.p, p.ip1] = 1/6
+        A[p.p, p.jp1] = 1/6
+        A[p.p, p.kp1] = 1/6
+    # (Z,Y,X) = (i,ymax,0)
+    i, j, k = 1, mesh.ny-1, 0
+    for i in range(1, mesh.nz-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.im1] = 1/6
+        A[p.p, p.ip1] = 1/6
+        A[p.p, p.jm1] = 1/6
+        A[p.p, p.kp1] = 1/6
+    # (Z,Y,X) = (i,0,zmax)
+    i, j, k = 1, 0, mesh.nz-1
+    for i in range(1, mesh.nz-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.im1] = 1/6
+        A[p.p, p.ip1] = 1/6
+        A[p.p, p.jp1] = 1/6
+        A[p.p, p.km1] = 1/6
+    # (Z,Y,X) = (i,ymax,zmax)
+    i, j ,k = 1, mesh.ny-1, mesh.nz-1
+    for i in range(1, mesh.nz-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.ip1] = 1/6
+        A[p.p, p.im1] = 1/6
+        A[p.p, p.jm1] = 1/6
+        A[p.p, p.km1] = 1/6
+    # (Z,Y,X) = (0,j,0)
+    i, j, k = 0, 1, 0
+    for j in range(1, mesh.ny-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.ip1] = 1/6
+        A[p.p, p.jm1] = 1/6
+        A[p.p, p.jp1] = 1/6
+        A[p.p, p.kp1] = 1/6
+    # (Z,Y,X) = (zmax,j,0)
+    i, j, k = mesh.nz-1, 1, 0
+    for j in range(1, mesh.ny-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.im1] = 1/6
+        A[p.p, p.jp1] = 1/6
+        A[p.p, p.jm1] = 1/6
+        A[p.p, p.kp1] = 1/6
+    # (Z,Y,X) = (0,j,xmax)
+    i, j, k = 0, 1, mesh.nx-1
+    for j in range(1, mesh.ny-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.ip1] = 1/6
+        A[p.p, p.jp1] = 1/6
+        A[p.p, p.jm1] = 1/6
+        A[p.p, p.km1] = 1/6
+    # (Z,Y,X) = (zmax,j,zmax)
+    i, j, k = mesh.nz-1, 1, mesh.ny-1
+    for j in range(1, mesh.ny-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.im1] = 1/6
+        A[p.p, p.jp1] = 1/6
+        A[p.p, p.jm1] = 1/6
+        A[p.p, p.km1] = 1/6
+    # (Z,Y,X) = (0,0,k)
+    i, j, k = 0, 0, 1
+    for k in range(1, mesh.nx-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.ip1] = 1/6
+        A[p.p, p.jp1] = 1/6
+        A[p.p, p.kp1] = 1/6
+        A[p.p, p.km1] = 1/6
+    # (Z,Y,X) = (zmax,0,k)
+    i, j, k = mesh.nz-1, 0, 1
+    for k in range(1, mesh.nx-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.im1] = 1/6
+        A[p.p, p.jp1] = 1/6
+        A[p.p, p.kp1] = 1/6
+        A[p.p, p.km1] = 1/6
+    # (Z,Y,X) = (0,ymax,k)
+    i, j, k = 0, mesh.ny-1, 1
+    for k in range(1, mesh.nx-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.ip1] = 1/6
+        A[p.p, p.jm1] = 1/6
+        A[p.p, p.kp1] = 1/6
+        A[p.p, p.km1] = 1/6
+    # (Z,Y,X) = (zmax,ymax,k)
+    i, j, k = mesh.nz-1, mesh.ny-1, 1
+    for k in range(1, mesh.nx-1):
+        p = coordinate(i, j, k, mesh)
+        A[p.p, p.im1] = 1/6
+        A[p.p, p.jm1] = 1/6
+        A[p.p, p.kp1] = 1/6
+        A[p.p, p.km1] = 1/6
+
+    for j in range(1, mesh.ny-1):
+        for k in range(1, mesh.nx-1):
+            i = 0
+            p = coordinate(i, j, k, mesh)
+            if Z[i, j, k] != 0:
+                A[p.p, p.p] = 1.0
+            else:
+                A[p.p, p.ip1] = 1/6
+                A[p.p, p.jp1] = 1/6
+                A[p.p, p.jm1] = 1/6
+                A[p.p, p.kp1] = 1/6
+                A[p.p, p.km1] = 1/6
+
+            i = mesh.nz-1
+            p = coordinate(i, j, k, mesh)
+            if Z[i, j, k] != 0:
+                A[p.p, p.p] = 1.0
+            else:
+                A[p.p, p.im1] = 1/6
+                A[p.p, p.jp1] = 1/6
+                A[p.p, p.jm1] = 1/6
+                A[p.p, p.kp1] = 1/6
+                A[p.p, p.km1] = 1/6
+
+    for k in range(1, mesh.nx-1):
+        for i in range(1, mesh.nz-1):
+            j = 1
+            p = coordinate(i, j, k, mesh)
+            A[p.p, p.ip1] = 1/6
+            A[p.p, p.im1] = 1/6
+            A[p.p, p.jp1] = 1/6
+            A[p.p, p.kp1] = 1/6
+            A[p.p, p.km1] = 1/6
+
+            j = mesh.ny-1
+            p = coordinate(i, j, k, mesh)
+            A[p.p, p.ip1] = 1/6
+            A[p.p, p.im1] = 1/6
+            A[p.p, p.jm1] = 1/6
+            A[p.p, p.kp1] = 1/6
+            A[p.p, p.km1] = 1/6
+
+    for i in range(1, mesh.nz-1):
+        for j in range(1, mesh.ny-1):
+            k = 0
+            p = coordinate(i, j, k, mesh)
+            A[p.p, p.ip1] = 1/6
+            A[p.p, p.im1] = 1/6
+            A[p.p, p.jp1] = 1/6
+            A[p.p, p.jm1] = 1/6
+            A[p.p, p.kp1] = 1/6
+
+            k = mesh.nx-1
+            p = coordinate(i, j, k, mesh)
+            A[p.p, p.ip1] = 1/6
+            A[p.p, p.im1] = 1/6
+            A[p.p, p.jm1] = 1/6
+            A[p.p, p.jp1] = 1/6
+            A[p.p, p.km1] = 1/6
+
+    return A.tocsc()
+
+class IterationControl:
+    """
+        Class to control iteration loop
+    """
+
+    def __init__(self, max_iter, info_interval, tolerance):
+        self.max_iter = max_iter
+        self.info_interval = info_interval
+        self.tolerance = tolerance
+        self.eps = 1.0
+        self.iter = 0
+
+    def loop(self):
+        self.iter += 1
+        self.output_info()
+
+        if self.eps < self.tolerance:
+            return False
+        elif self.iter > self.max_iter:
+            print("max iteration reached")
+            return False
+        else:
+            return True
 
     def calc_epsilon(self, dx):
         self.eps = np.max(abs(dx))
@@ -136,16 +374,14 @@ def solve_eq():
     B = mesh.set_boundary_circle(2000, 17.8, 19)
     C = mesh.set_boundary_2circle(1e-100, 2000, 5, 12.7, 17.8, 19)
     D = mesh.set_boundary_2circle(1e-100, 2000, 11.5, 12.7, 17.8, 19)
-
-    electrode = mesh.make_cylinder(A, B, C, D, 20, 22, 32, 34)
+    E = mesh.set_boundary_circle(2000, 0, 19)
+    electrode = mesh.make_cylinder(A, B, C, D, E, 0, 2, 12, 14)
 
     A = calc_jacobi_matrix(mesh, electrode)
 
     k = mesh.convert_to_1d_array(electrode)
 
     iter_control = IterationControl(25000, 100, 1e-3)
-
-    start_time = time.time()
 
     while iter_control.loop():
         k_new = A.dot(k)
