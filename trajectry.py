@@ -41,22 +41,38 @@ def Runge_Kutta(x0, a, v, h):
     x = x0 + 1000*(k1+2*k2+2*k3+k4)*h/6
     return x
 
-fig = plt.figure()
+def getNearestValue(zlist, ylist, value):                 #z方向の値を返して，対応するy方向の値に代入
 
-zlist = [[],[],[],[],[],[],[],[],[]]
-ylist = [[],[],[],[],[],[],[],[],[]]
+    idx = np.abs(np.asarray(zlist) - value).argmin()
+    number = zlist.index(idx)
 
-z = np.zeros(9)
-y = np.arange(-4, 5)
+    return ylist[number]
 
-for i in range(9):
+def SpaceChargeEffect(I, dy, y0, r, y0list, i, j):
+        z = np.sqrt(r**2-(ylist[i])**2)
+        d = y0 - y0list[i]
+        pi = np.pi
+        eps = 8.85418782e-12
+
+        sigma = I/(4*pi*(r*10^-3)**2)
+
+        E = dy*sigma*z/(2*pi*eps*d*np.sqrt(d**2+z**2))
+        return E
+
+zlist = [[],[],[],[],[],[],[],[],[],[],[]]
+ylist = [[],[],[],[],[],[],[],[],[],[],[]]
+
+z = np.zeros(11)
+y = np.linspace(-4.6, 4.6, 11)
+
+for i in range(11):
     t = 0
     vz0 = 0
     vy0 = 0
     z0 = z[i]
     y0 = y[i]
 
-    while mesh.zmin<=z0<=mesh.zmax and mesh.ymin<=y0<=mesh.ymax:
+    while mesh.zmin+1<=z0<=mesh.zmax-1 and mesh.ymin+1<=y0<=mesh.ymax-1:
         t += H
 
         az = Az[int((mesh.ny-1)*(mesh.ymax-y0)/(mesh.ymax-mesh.ymin)), int((mesh.nz-1)*(z0-mesh.zmin)/(mesh.zmax - mesh.zmin))]
@@ -70,7 +86,6 @@ for i in range(9):
 
         zlist[i].append(z0)
         ylist[i].append(y0)
-        print(z0, y0)
         
 zform1 = [mesh.zmax, 0, 0, 2, 2, mesh.zmax] 
 yform1 = [20, 20, 5, 5, 18.5, 18.5]
@@ -81,8 +96,9 @@ yform2 = [13, 13, 5, 5, 11.5, 11.5]
 yreform1 = [-20, -20, -5, -5, -18.5, -18.5]
 yreform2 = [-13, -13, -5, -5, -11.5, -11.5]
 
-for i in range(9):
+fig = plt.figure()
 
+for i in range(11):
         plt.plot(zlist[i], ylist[i], color="r")
 
 plt.plot(zform1, yform1, color="k")
