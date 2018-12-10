@@ -8,7 +8,7 @@ from matplotlib import cm
 
 import electro_module as pde
 
-with open('electrode.binaryfile', 'rb') as lens:
+with open('electrode_n200zmax25.binaryfile', 'rb') as lens:
     V = pickle.load(lens)
 
 mesh = pde.CartesianGrid()
@@ -18,17 +18,13 @@ V = V_pre.transpose()
 m = (40e-3)/(6.0*1e+23)
 q = 1.6e-19
 H = 1e-10
-<<<<<<< HEAD
 eps = 8.85418782e-12
 V_extract = 2000
 d = 1
 J = (4*eps*(V_extract**(3/2))*np.sqrt(2*q/m))/(9*d**2)
 I = J*np.pi*d**2/4
-print(I)
-itera = 20
-=======
-I = 1
->>>>>>> 50acafb2d68451becaf2057f7e5003984bf935b0
+I = I*0.65
+itera = 19
 
 Ez = np.empty((mesh.nz-1, mesh.nx-1))
 Ey = np.empty((mesh.nz-1, mesh.nx-1))
@@ -60,7 +56,6 @@ def SpaceChargeEffect1(I, dy, r, v, i):
     pi = np.pi
     eps = 8.85418782e-12
 
-<<<<<<< HEAD
     sigma = I/(v*pi*(r*1e-3)**2)
 
     E = -sigma*i*dy*1e-3/(2*eps)
@@ -76,18 +71,19 @@ def SpaceChargeEffect2(I, dy, r, v, i):
     return E
 
 def calc_trajectory(itera):
+    data = [[],[],[]]
     for a in range(itera):
 
-        zlist = [[],[],[],[],[],[],[],[],[],[],[]]
-        ylist = [[],[],[],[],[],[],[],[],[],[],[]]
-        vzlist = [[],[],[],[],[],[],[],[],[],[],[]]
+        zlist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
+        ylist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
+        vzlist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
 
         Az = Ez*(q/m)
         Ay = Ey*(q/m)
-        z = np.zeros(11)
-        y = np.linspace(-4.6, 4.6, 11)
+        z = np.zeros(13)
+        y = np.linspace(-4.5, 4.5, 13)
 
-        for b in range(11):                         #軌道計算
+        for b in range(13):                         #軌道計算
             
             t = 0
             vz0 = 0
@@ -95,7 +91,7 @@ def calc_trajectory(itera):
             z0 = z[b]
             y0 = y[b]
 
-            while mesh.zmin+1<=z0<=mesh.zmax-1 and mesh.ymin+1<=y0<=mesh.ymax-1:
+            while mesh.zmin+1<=z0<=mesh.zmax-0.1 and -11.5<=y0<=11.5:
                 
                 t += H
 
@@ -112,6 +108,10 @@ def calc_trajectory(itera):
                 zlist[b].append(z0)
                 ylist[b].append(y0)
 
+            data[0].append(vz0)
+            data[1].append(vy0)
+            data[2].append(y0)
+
         for i in range(mesh.nx -1):                                 #電場リセット
             for j in range(mesh.nz -1):
                 Ey[i, j] = -(V[i, j] - V[i+1, j])/delta_y
@@ -119,13 +119,13 @@ def calc_trajectory(itera):
 
         iteration = 0
         for i in range(int((0-mesh.zmin)*mesh.nz/(mesh.zmax-mesh.zmin)), int((12-mesh.zmin)*mesh.nz/(mesh.zmax-mesh.zmin)-1)):  #軌道から電場
-            alpha = 0.5 + iteration*0.5/int(12*mesh.nz/(mesh.zmax-mesh.zmin))
+            alpha = 0.35 + iteration*0.65/int(12*mesh.nz/(mesh.zmax-mesh.zmin))
             iteration = iteration + 1
             
             y0list = []
             vz0list = []
 
-            for j in range(11):
+            for j in range(13):
                 y0list.append(getNearestValue(zlist, ylist, i*mesh.dz, j))
                 vz0list.append(getNearestValue(zlist, vzlist, i*mesh.dz, j))
             
@@ -148,8 +148,53 @@ def calc_trajectory(itera):
                 vz0list.append(getNearestValue(zlist, vzlist, i*mesh.dz, j))
             
             r = np.max(y0list)
-            if r >= 10:
-                r = 10
+            v = np.mean(vz0list)
+
+            for k in range(int((mesh.ymax-12)*mesh.ny/(mesh.ymax-mesh.ymin))+1, int((mesh.ymax+12)*mesh.ny/(mesh.ymax-mesh.ymin))):
+                if int((mesh.ymax-r)*mesh.ny/(mesh.ymax-mesh.ymin)) <= k <= int((mesh.ymax+r)*mesh.ny/(mesh.ymax-mesh.ymin)): 
+                    Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect1(I, mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
+                else:
+                    Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect2(I, mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))          
+
+    """
+    Ey2 = np.zeros((mesh.ny-1, int((75-mesh.zmax)/mesh.dz)))
+    Ez2 = np.zeros((mesh.ny-1, int((75-mesh.zmax)/mesh.dz)))
+    Az = Ez2*(q/m)
+    Ay = Ey2*(q/m)
+    for b in range(13):                        
+            
+            t = 0
+            vz0 = data[0][b]
+            vy0 = data[1][b]
+            z0 = 34
+            y0 = data[2][b]
+
+            while mesh.zmax-1<=z0<=75 and -12<=y0<=12:
+                
+                t += H
+
+                az = Az[int((mesh.ny-1)*(mesh.ymax-y0)/(mesh.ymax-mesh.ymin)), int(((75-mesh.zmax)/mesh.dz)*(z0-mesh.zmax)/40)]
+                ay = Ay[int((mesh.ny-1)*(mesh.ymax-y0)/(mesh.ymax-mesh.ymin)), int(((75-mesh.zmax)/mesh.dz)*(z0-mesh.zmax)/40)]
+
+                vz0 += az*H
+                vy0 += ay*H
+
+                z0 = Runge_Kutta(z0, az, vz0, H)
+                y0 = Runge_Kutta(y0, ay, vy0, H)
+
+                vzlist[b].append(vz0)
+                zlist[b].append(z0)
+                ylist[b].append(y0)
+    
+    for i in range(int((75-mesh.zmax)*mesh.nz/(mesh.zmax-mesh.zmin))-1):  #軌道から電場
+            y0list = []
+            vz0list = []
+            for j in range(11):
+                y0list.append(getNearestValue(zlist, ylist, i*mesh.dz, j))
+                vz0list.append(getNearestValue(zlist, vzlist, i*mesh.dz, j))
+            
+            r = np.max(y0list)
+        
             v = np.mean(vz0list)
 
             for k in range(int((mesh.ymax-12)*mesh.ny/(mesh.ymax-mesh.ymin))+1, int((mesh.ymax+12)*mesh.ny/(mesh.ymax-mesh.ymin))):
@@ -157,99 +202,19 @@ def calc_trajectory(itera):
                     Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect1(I, mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
                 else:
                     Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect2(I, mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
+    """
 
-    zform1 = [mesh.zmax, 0, 0, 2, 2, mesh.zmax]
+    zform1 = [mesh.zmax+40, 0, 0, 2, 2, mesh.zmax]
     yform1 = [20, 20, 5, 5, 18.5, 18.5]
 
-    zform2 = [mesh.zmax, 10, 10, 12, 12, mesh.zmax]
+    zform2 = [mesh.zmax+40, 10, 10, 12, 12, mesh.zmax]
     yform2 = [13, 13, 5, 5, 11.5, 11.5]
 
     yreform1 = [-20, -20, -5, -5, -18.5, -18.5]
     yreform2 = [-13, -13, -5, -5, -11.5, -11.5]
 
-    for i in range(11):
+    for i in range(13):
         plt.plot(zlist[i], ylist[i], color="r")
-=======
-    sigma = I/(v*pi*(r*(1e-3))**2)
-
-    E = sigma*i*dy*1e-3/2*eps
-    return E
-
-def SpaceChargeEffect2(I, r, v):
-    pi = np.pi
-    eps = 8.85418782e-12
-
-    sigma = I/(v*pi*(r*1e-3)**2)
-
-    E = sigma*r/2*eps
-    return E
-    
-zlist = [[],[],[],[],[],[],[],[],[],[],[]]
-ylist = [[],[],[],[],[],[],[],[],[],[],[]]
-vzlist = [[],[],[],[],[],[],[],[],[],[],[]]
-
-z = np.zeros(11)
-y = np.linspace(-4.6, 4.6, 11)
-
-# main code
-for a in range(2):
-    Az = Ez*(q/m)
-    Ay = Ey*(q/m)
-    for i in range(11):
-        t = 0
-        vz0 = 0
-        vy0 = 0
-        z0 = z[i]
-        y0 = y[i]
-
-        while mesh.zmin+1<=z0<=mesh.zmax-1 and mesh.ymin+1<=y0<=mesh.ymax-1:
-            t += H
-
-            az = Az[int((mesh.ny-1)*(mesh.ymax-y0)/(mesh.ymax-mesh.ymin)), int((mesh.nz-1)*(z0-mesh.zmin)/(mesh.zmax - mesh.zmin))]
-            ay = Ay[int((mesh.ny-1)*(mesh.ymax-y0)/(mesh.ymax-mesh.ymin)), int((mesh.nz-1)*(z0-mesh.zmin)/(mesh.zmax - mesh.zmin))]
-
-            vz0 += az*H
-            vy0 += ay*H
-
-            z0 = Runge_Kutta(z0, az, vz0, H)
-            y0 = Runge_Kutta(y0, ay, vy0, H)
-
-            vzlist[i].append(vz0)
-            zlist[i].append(z0)
-            ylist[i].append(y0)
-
-    for i in range(int((0-mesh.zmin)*mesh.nz/(mesh.zmax-mesh.zmin)), int((mesh.zmax-mesh.zmin)*mesh.nz/(mesh.zmax-mesh.zmin))): 
-        for j in range(11):
-            y0list = []
-            y0list.append(getNearestValue(zlist[j], ylist, i*mesh.dz, j))
-            vz0list = []
-            vz0list.append(getNearestValue(zlist[j], vzlist, i*mesh.dz, j))
-
-        r = np.max(y0list)
-        E = 0
-        v = np.mean(vz0list)
-
-        for k in range(int((mesh.ymax-12)*mesh.ny/(mesh.ymax-mesh.ymin)), int((mesh.ymax+12)*mesh.ny/(mesh.ymax-mesh.ymin))+1):
-            if int((mesh.ymax-r)*mesh.ny/(mesh.ymax-mesh.ymin)) <= k <= int((mesh.ymax+r)*mesh.ny/(mesh.ymax-mesh.ymin)): 
-                Ey[i, k] = Ey[i, k] + SpaceChargeEffect1(I, mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
-
-            else:
-                Ey[i, k] = Ey[i, k] + SpaceChargeEffect2(I, r, v)
-
-zform1 = [mesh.zmax, 0, 0, 2, 2, mesh.zmax]
-yform1 = [20, 20, 5, 5, 18.5, 18.5]
-
-zform2 = [mesh.zmax, 10, 10, 12, 12, mesh.zmax]
-yform2 = [13, 13, 5, 5, 11.5, 11.5]
-
-yreform1 = [-20, -20, -5, -5, -18.5, -18.5]
-yreform2 = [-13, -13, -5, -5, -11.5, -11.5]
-
-fig = plt.figure()
-
-for i in range(11):
-    plt.plot(zlist[i], ylist[i], color="r")
->>>>>>> 50acafb2d68451becaf2057f7e5003984bf935b0
 
     plt.plot(zform1, yform1, color="k")
     plt.plot(zform2, yform2, color="k")
@@ -261,9 +226,7 @@ for i in range(11):
 
     plt.show()
 
-<<<<<<< HEAD
+    with open('particles.binaryfile', 'wb') as particles:
+        pickle.dump(data, particles)
+
 calc_trajectory(itera)
-=======
-plt.show()
-print(z, y)
->>>>>>> 50acafb2d68451becaf2057f7e5003984bf935b0
