@@ -1,8 +1,7 @@
 # coding:utf-8
 
 import numpy as np
-from scipy.sparse import lil_matrix
-from scipy.sparse import csc_matrix
+import matplotlib.pyplot as plt
 import time
 import pickle
 
@@ -30,6 +29,10 @@ class CartesianGrid:                                                            
     def create_meshgrid(self):                                                  #軸設定、max, minで表示する範囲を決定
         return np.meshgrid(self.x, self.y, self.z)
 
+
+with open('particles.binaryfile', 'rb') as particle:
+    data = pickle.load(particle)
+
 mesh = CartesianGrid()
 
 m = (40e-3)/(6.0*1e+23)
@@ -40,10 +43,8 @@ V_extract = 2000
 d = 1
 J = (4*eps*(V_extract**(3/2))*np.sqrt(2*q/m))/(9*d**2)
 I = J*np.pi*d**2/4
-itera = 20
-
-Ez = np.empty((mesh.nz-1, mesh.nx-1))
-Ey = np.empty((mesh.nz-1, mesh.nx-1))
+I = I*0.65
+itera = 9
 
 delta_y = (mesh.xmax - mesh.xmin)/(mesh.nx*1000)
 delta_z = (mesh.zmax - mesh.zmin)/(mesh.nz*1000)
@@ -81,27 +82,27 @@ def SpaceChargeEffect2(I, dy, r, v, i):
     E = -sigma/(2*pi*eps*(i*dy*1e-3))
     return E
 
-def calc_trajectory(itera):
+def calc_trajectory(itera, data):
+    Ez = np.empty((mesh.nz-1, mesh.nx-1))
+    Ey = np.empty((mesh.nz-1, mesh.nx-1))
+
     for a in range(itera):
-        data = [[],[],[]]
         zlist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
         ylist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
         vzlist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
 
         Az = Ez*(q/m)
         Ay = Ey*(q/m)
-        z = np.zeros(13)
-        y = np.linspace(-4.6, 4.6, 13)
 
         for b in range(13):                         #軌道計算
             
             t = 0
-            vz0 = 0
-            vy0 = 0
-            z0 = z[b]
-            y0 = y[b]
+            vz0 = data[0][b]
+            vy0 = data[1][b]
+            z0 = 25
+            y0 = data[2][b]
 
-            while mesh.zmin+1<=z0<=mesh.zmax-1 and -11.5<=y0<=11.5:
+            while mesh.zmin-0.3<=z0<=mesh.zmax-0.1 and -11.5<=y0<=11.5:
                 
                 t += H
 
@@ -122,6 +123,9 @@ def calc_trajectory(itera):
             data[1].append(vy0)
             data[2].append(y0)
 
+        Ez = np.empty((mesh.nz-1, mesh.nx-1))
+        Ey = np.empty((mesh.nz-1, mesh.nx-1))
+
         for i in range(int(mesh.nz-1)):  #軌道から電場
             y0list = []
             vz0list = []
@@ -137,3 +141,27 @@ def calc_trajectory(itera):
                     Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect1(I, mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
                 else:
                     Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect2(I, mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
+            
+    zform1 = [mesh.zmax+40, 0, 0, 2, 2, mesh.zmax]
+    yform1 = [20, 20, 5, 5, 18.5, 18.5]
+
+    zform2 = [mesh.zmax+40, 10, 10, 12, 12, mesh.zmax]
+    yform2 = [13, 13, 5, 5, 11.5, 11.5]
+
+    yreform1 = [-20, -20, -5, -5, -18.5, -18.5]
+    yreform2 = [-13, -13, -5, -5, -11.5, -11.5]
+
+    for i in range(13):
+        plt.plot(zlist[i], ylist[i], color="r")
+
+    plt.plot(zform1, yform1, color="k")
+    plt.plot(zform2, yform2, color="k")
+    plt.plot(zform1, yreform1, color="k")
+    plt.plot(zform2, yreform2, color="k")
+
+    plt.xlim([mesh.zmin, mesh.zmax])
+    plt.ylim([mesh.xmin, mesh.xmax])
+
+    plt.show()
+
+calc_trajectory(itera, data)
