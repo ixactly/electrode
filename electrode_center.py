@@ -6,7 +6,7 @@ import electro_module as pde
 import pickle
 from matplotlib import cm
 
-with open('electrode.binaryfile', 'rb') as electrode:
+with open('electrode_n200zmax25.binaryfile', 'rb') as electrode:
     V = pickle.load(electrode)
 
 mesh = pde.CartesianGrid()

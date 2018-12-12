@@ -11,7 +11,7 @@ class CartesianGrid:                                                            
         Simple class to generate a computational grid and apply boundary conditions
     """
 
-    def __init__(self, nx=150, ny=150, nz=150, xmin=-21, xmax=21, ymin=-21, ymax=21, zmin=-5, zmax=35):
+    def __init__(self, nx=200, ny=200, nz=200, xmin=-21, xmax=21, ymin=-21, ymax=21, zmin=-5, zmax=25):
         self.nx, self.ny, self.nz = nx, ny, nz
         self.ntotal = nx*ny*nz
 
@@ -104,6 +104,7 @@ class coordinate:
         self.km1 = i*mesh.nx*mesh.ny + j*mesh.nx + (k-1)
 
 def calc_jacobi_matrix(mesh, Z):
+    
     """
         Create sparse matrix for Jacobi method
     """
@@ -191,7 +192,7 @@ def calc_jacobi_matrix(mesh, Z):
         A[p.p, p.jm1] = 1/6
         A[p.p, p.kp1] = 1/6
     # (Z,Y,X) = (i,0,zmax)
-    i, j, k = 1, 0, mesh.nz-1
+    i, j, k = 1, 0, mesh.nx-1
     for i in range(1, mesh.nz-1):
         p = coordinate(i, j, k, mesh)
         A[p.p, p.im1] = 1/6
@@ -199,7 +200,7 @@ def calc_jacobi_matrix(mesh, Z):
         A[p.p, p.jp1] = 1/6
         A[p.p, p.km1] = 1/6
     # (Z,Y,X) = (i,ymax,zmax)
-    i, j ,k = 1, mesh.ny-1, mesh.nz-1
+    i, j ,k = 1, mesh.ny-1, mesh.nx-1
     for i in range(1, mesh.nz-1):
         p = coordinate(i, j, k, mesh)
         A[p.p, p.ip1] = 1/6
@@ -231,7 +232,7 @@ def calc_jacobi_matrix(mesh, Z):
         A[p.p, p.jm1] = 1/6
         A[p.p, p.km1] = 1/6
     # (Z,Y,X) = (zmax,j,zmax)
-    i, j, k = mesh.nz-1, 1, mesh.ny-1
+    i, j, k = mesh.nz-1, 1, mesh.nx-1
     for j in range(1, mesh.ny-1):
         p = coordinate(i, j, k, mesh)
         A[p.p, p.im1] = 1/6
@@ -394,5 +395,5 @@ def solve_eq():
 
 Potential = solve_eq()
 
-with open('electrode.binaryfile', 'wb') as lens:
+with open('electrode_n200zmax25.binaryfile', 'wb') as lens:
     pickle.dump(Potential, lens)

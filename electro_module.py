@@ -9,7 +9,7 @@ class CartesianGrid:                                                            
         Simple class to generate a computational grid and apply boundary conditions
     """
 
-    def __init__(self, nx=150, ny=150, nz=150, xmin=-21, xmax=21, ymin=-21, ymax=21, zmin=-5, zmax=35):
+    def __init__(self, nx=200, ny=200, nz=200, xmin=-21, xmax=21, ymin=-21, ymax=21, zmin=-5, zmax=25):
         self.nx, self.ny, self.nz = nx, ny, nz
         self.ntotal = nx*ny*nz
 

@@ -44,7 +44,7 @@ d = 1
 J = (4*eps*(V_extract**(3/2))*np.sqrt(2*q/m))/(9*d**2)
 I = J*np.pi*d**2/4
 I = I*0.65
-itera = 9
+itera = 20
 
 delta_y = (mesh.xmax - mesh.xmin)/(mesh.nx*1000)
 delta_z = (mesh.zmax - mesh.zmin)/(mesh.nz*1000)
@@ -83,8 +83,10 @@ def SpaceChargeEffect2(I, dy, r, v, i):
     return E
 
 def calc_trajectory(itera, data):
-    Ez = np.empty((mesh.nz-1, mesh.nx-1))
-    Ey = np.empty((mesh.nz-1, mesh.nx-1))
+    data1 = [[],[],[]]
+
+    Ez = np.zeros((mesh.nz-1, mesh.nx-1))
+    Ey = np.zeros((mesh.nz-1, mesh.nx-1))
 
     for a in range(itera):
         zlist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
@@ -119,28 +121,35 @@ def calc_trajectory(itera, data):
                 zlist[b].append(z0)
                 ylist[b].append(y0)
 
-            data[0].append(vz0)
-            data[1].append(vy0)
-            data[2].append(y0)
+            data1[0].append(vz0)
+            data1[1].append(vy0)
+            data1[2].append(y0)
 
-        Ez = np.empty((mesh.nz-1, mesh.nx-1))
-        Ey = np.empty((mesh.nz-1, mesh.nx-1))
+        Ez = np.zeros((mesh.nz-1, mesh.nx-1))
+        Ey = np.zeros((mesh.nz-1, mesh.nx-1))
 
         for i in range(int(mesh.nz-1)):  #軌道から電場
+            co = 0
             y0list = []
             vz0list = []
-            for j in range(11):
-                y0list.append(getNearestValue(zlist, ylist, i*mesh.dz, j))
-                vz0list.append(getNearestValue(zlist, vzlist, i*mesh.dz, j))
+            for j in range(13):
+                y0list.append(getNearestValue(zlist, ylist, mesh.zmin+i*mesh.dz, j))
+                vz0list.append(getNearestValue(zlist, vzlist, mesh.zmin+i*mesh.dz, j))
             
             r = np.max(y0list)
             v = np.mean(vz0list)
 
+            for j in range(13):
+                if y0list[j] > 11.2 or y0list[j] < -11.2:
+                    co += 1
+                print(y0list[j])
+            print(co)
+            print(mesh.zmin+mesh.dz*i)
             for k in range(int((mesh.ymax-12)*mesh.ny/(mesh.ymax-mesh.ymin))+1, int((mesh.ymax+12)*mesh.ny/(mesh.ymax-mesh.ymin))):
                 if int((mesh.ymax-r)*mesh.ny/(mesh.ymax-mesh.ymin)) <= k <= int((mesh.ymax+r)*mesh.ny/(mesh.ymax-mesh.ymin)): 
-                    Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect1(I, mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
+                    Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect1(I*(1-co/13), mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
                 else:
-                    Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect2(I, mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
+                    Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect2(I*(1-co/13), mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
             
     zform1 = [mesh.zmax+40, 0, 0, 2, 2, mesh.zmax]
     yform1 = [20, 20, 5, 5, 18.5, 18.5]
@@ -164,4 +173,7 @@ def calc_trajectory(itera, data):
 
     plt.show()
 
+    with open('particles2.binaryfile', 'wb') as particles:
+        pickle.dump(data1, particles)
+        
 calc_trajectory(itera, data)
