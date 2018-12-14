@@ -29,10 +29,6 @@ class CartesianGrid:                                                            
     def create_meshgrid(self):                                                  #軸設定、max, minで表示する範囲を決定
         return np.meshgrid(self.x, self.y, self.z)
 
-
-with open('particles.binaryfile', 'rb') as particle:
-    data = pickle.load(particle)
-
 mesh = CartesianGrid()
 
 m = (40e-3)/(6.0*1e+23)
@@ -43,8 +39,7 @@ V_extract = 2000
 d = 1
 J = (4*eps*(V_extract**(3/2))*np.sqrt(2*q/m))/(9*d**2)
 I = J*np.pi*d**2/4
-I = I*0.65
-itera = 20
+I = I*(1/20)
 
 delta_y = (mesh.xmax - mesh.xmin)/(mesh.nx*1000)
 delta_z = (mesh.zmax - mesh.zmin)/(mesh.nz*1000)
@@ -83,7 +78,6 @@ def SpaceChargeEffect2(I, dy, r, v, i):
     return E
 
 def calc_trajectory(itera, data):
-    data1 = [[],[],[]]
 
     Ez = np.zeros((mesh.nz-1, mesh.nx-1))
     Ey = np.zeros((mesh.nz-1, mesh.nx-1))
@@ -104,7 +98,7 @@ def calc_trajectory(itera, data):
             z0 = 25
             y0 = data[2][b]
 
-            while mesh.zmin-0.3<=z0<=mesh.zmax-0.1 and -11.5<=y0<=11.5:
+            while mesh.zmin-0.3<=z0<=mesh.zmax-0.05 and -11.5<=y0<=11.5:
                 
                 t += H
 
@@ -121,9 +115,9 @@ def calc_trajectory(itera, data):
                 zlist[b].append(z0)
                 ylist[b].append(y0)
 
-            data1[0].append(vz0)
-            data1[1].append(vy0)
-            data1[2].append(y0)
+            data[0][0].append(vz0)
+            data[0][1].append(vy0)
+            data[0][2].append(y0)
 
         Ez = np.zeros((mesh.nz-1, mesh.nx-1))
         Ey = np.zeros((mesh.nz-1, mesh.nx-1))
@@ -142,38 +136,17 @@ def calc_trajectory(itera, data):
             for j in range(13):
                 if y0list[j] > 11.2 or y0list[j] < -11.2:
                     co += 1
-                print(y0list[j])
-            print(co)
-            print(mesh.zmin+mesh.dz*i)
+                
             for k in range(int((mesh.ymax-12)*mesh.ny/(mesh.ymax-mesh.ymin))+1, int((mesh.ymax+12)*mesh.ny/(mesh.ymax-mesh.ymin))):
                 if int((mesh.ymax-r)*mesh.ny/(mesh.ymax-mesh.ymin)) <= k <= int((mesh.ymax+r)*mesh.ny/(mesh.ymax-mesh.ymin)): 
                     Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect1(I*(1-co/13), mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
                 else:
                     Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect2(I*(1-co/13), mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
-            
-    zform1 = [mesh.zmax+40, 0, 0, 2, 2, mesh.zmax]
-    yform1 = [20, 20, 5, 5, 18.5, 18.5]
-
-    zform2 = [mesh.zmax+40, 10, 10, 12, 12, mesh.zmax]
-    yform2 = [13, 13, 5, 5, 11.5, 11.5]
-
-    yreform1 = [-20, -20, -5, -5, -18.5, -18.5]
-    yreform2 = [-13, -13, -5, -5, -11.5, -11.5]
-
+    
     for i in range(13):
-        plt.plot(zlist[i], ylist[i], color="r")
+        data[1][0][i].extend(zlist[i])
+        data[1][1][i].extend(ylist[i])
+    
+    return data
 
-    plt.plot(zform1, yform1, color="k")
-    plt.plot(zform2, yform2, color="k")
-    plt.plot(zform1, yreform1, color="k")
-    plt.plot(zform2, yreform2, color="k")
 
-    plt.xlim([mesh.zmin, mesh.zmax])
-    plt.ylim([mesh.xmin, mesh.xmax])
-
-    plt.show()
-
-    with open('particles2.binaryfile', 'wb') as particles:
-        pickle.dump(data1, particles)
-        
-calc_trajectory(itera, data)
