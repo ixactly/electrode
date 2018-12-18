@@ -44,7 +44,7 @@ V_extract = 2000
 d = 1
 J = (4*eps*(V_extract**(3/2))*np.sqrt(2*q/m))/(9*d**2)
 I = J*np.pi*d**2/4
-I = I*(1/20)
+I = I*(1/13)
 
 Ez = np.empty((mesh.nz-1, mesh.nx-1))
 Ey = np.empty((mesh.nz-1, mesh.nx-1))
@@ -60,8 +60,7 @@ V_extract = 2000
 d = 1
 J = (4*eps*(V_extract**(3/2))*np.sqrt(2*q/m))/(9*d**2)
 I = J*np.pi*d**2/4
-I = I*(1/20)
-itera = 100
+I = I*(1/13)
 
 Ez = np.empty((mesh.nz-1, mesh.nx-1))
 Ey = np.empty((mesh.nz-1, mesh.nx-1))
@@ -106,9 +105,15 @@ def SpaceChargeEffect2(I, dy, r, v, i):
 
     E = -sigma/(2*pi*eps*(i*dy*1e-3))
     return E
-def calc_trajectory(itera, data):
+
+def calc_trajectory(itera):
+
+    with open('particles2.binaryfile', 'rb') as particle:
+        data = pickle.load(particle)
 
     for a in range(itera):
+        data1 = [[],[],[]]
+        
         zlist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
         ylist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
         vzlist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
@@ -124,7 +129,11 @@ def calc_trajectory(itera, data):
             z0 = mesh.zmin
             y0 = data[2][b]
 
-            while mesh.zmin-0.3<=z0<=mesh.zmax and -18.0<=y0<=18.0:
+            vzlist[b].append(vz0)
+            zlist[b].append(z0)
+            ylist[b].append(y0)
+
+            while mesh.zmin-0.3<=z0<=mesh.zmax and -19.5<=y0<=19.5:
                 
                 t += H
 
@@ -141,9 +150,9 @@ def calc_trajectory(itera, data):
                 zlist[b].append(z0)
                 ylist[b].append(y0)
 
-            data[0][0].append(vz0)
-            data[0][1].append(vy0)
-            data[0][2].append(y0)
+            data1[0].append(vz0)
+            data1[1].append(vy0)
+            data1[2].append(y0)
 
         for i in range(mesh.nx -1):                                 #電場リセット
             for j in range(mesh.nz -1):
@@ -151,28 +160,27 @@ def calc_trajectory(itera, data):
                 Ez[i, j] = -(V[i, j+1] - V[i, j])/delta_z
 
         for i in range(int(mesh.nz-1)):  #軌道から電場
-            co = 2
+
             y0list = []
             vz0list = []
-            for j in range(1, 12):
-                y0list.append(getNearestValue(zlist, ylist, mesh.zmin+i*mesh.dz, j))
-                vz0list.append(getNearestValue(zlist, vzlist, mesh.zmin+i*mesh.dz, j))
+            for j in range(13):
+                if len(zlist[j]) != 0:
+                    y0list.append(getNearestValue(zlist, ylist, mesh.zmin+i*mesh.dz, j))
+                    vz0list.append(getNearestValue(zlist, vzlist, mesh.zmin+i*mesh.dz, j))
         
             r = np.max(y0list)
             v = np.mean(vz0list)
+            num = len(y0list)
+            co = 13 - num
 
-            for j in range(11):
-                if y0list[j] > 18.0 or y0list[j] < -18.0:
+            for j in range(num):
+                if y0list[j] > 19.5 or y0list[j] < -19.5:
                     co += 1
           
-            for k in range(int((mesh.ymax-12)*mesh.ny/(mesh.ymax-mesh.ymin))+1, int((mesh.ymax+12)*mesh.ny/(mesh.ymax-mesh.ymin))):
+            for k in range(int((mesh.ymax-19.7)*mesh.ny/(mesh.ymax-mesh.ymin)), int((mesh.ymax+19.7)*mesh.ny/(mesh.ymax-mesh.ymin))):
                 if int((mesh.ymax-r)*mesh.ny/(mesh.ymax-mesh.ymin)) <= k <= int((mesh.ymax+r)*mesh.ny/(mesh.ymax-mesh.ymin)): 
-                    Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect1(I*(1-co/13), mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
+                    Ey[k, i] = Ey[k, i] + SpaceChargeEffect1(I*(1-co/13), mesh.dy, r, v, k+1-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
                 else:
-                    Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect2(I*(1-co/13), mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
+                    Ey[k, i] = Ey[k, i] + SpaceChargeEffect2(I*(1-co/13), mesh.dy, r, v, k+1-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
     
-    for i in range(1, 12):
-        data[1][0][i].extend(zlist[i])
-        data[1][1][i].extend(ylist[i])
-
-    return data
+    return zlist, ylist

@@ -1,13 +1,16 @@
 # coding:utf-8
 
+import pickle
+
 import numpy as np
 import matplotlib.pyplot as plt
-import time
-import pickle
+from matplotlib import cm
+
+import electro_module as pde
 
 class CartesianGrid:                                                            #基本構造
 
-    def __init__(self, nx=300, ny=300, nz=300, xmin=-21, xmax=21, ymin=-21, ymax=21, zmin=25, zmax=75):
+    def __init__(self, nx=150, ny=150, nz=150, xmin=-21, xmax=21, ymin=-21, ymax=21, zmin=-5, zmax=25):
         self.nx, self.ny, self.nz = nx, ny, nz
         self.ntotal = nx*ny*nz
 
@@ -29,7 +32,12 @@ class CartesianGrid:                                                            
     def create_meshgrid(self):                                                  #軸設定、max, minで表示する範囲を決定
         return np.meshgrid(self.x, self.y, self.z)
 
+with open('electrode.binaryfile', 'rb') as lens:
+    V = pickle.load(lens)
+
 mesh = CartesianGrid()
+V_pre = V[:, int(mesh.ny/2), :]
+V = V_pre.transpose()
 
 m = (40e-3)/(6.0*1e+23)
 q = 1.6e-19
@@ -41,8 +49,16 @@ J = (4*eps*(V_extract**(3/2))*np.sqrt(2*q/m))/(9*d**2)
 I = J*np.pi*d**2/4
 I = I*(1/13)
 
+Ez = np.empty((mesh.nz-1, mesh.nx-1))
+Ey = np.empty((mesh.nz-1, mesh.nx-1))
+
 delta_y = (mesh.xmax - mesh.xmin)/(mesh.nx*1000)
 delta_z = (mesh.zmax - mesh.zmin)/(mesh.nz*1000)
+
+for i in range(mesh.nx -1):                                 #電場リセット
+    for j in range(mesh.nz -1):
+        Ey[i, j] = -(V[i, j] - V[i+1, j])/delta_y
+        Ez[i, j] = -(V[i, j+1] - V[i, j])/delta_z
 
 def Runge_Kutta(x0, a, v, h):
 
@@ -78,38 +94,32 @@ def SpaceChargeEffect2(I, dy, r, v, i):
     return E
 
 def calc_trajectory(itera):
-
-    with open('particles1.binaryfile', 'rb') as particle:
-        data = pickle.load(particle)
-
     
 
-    Ez = np.zeros((mesh.nz-1, mesh.nx-1))
-    Ey = np.zeros((mesh.nz-1, mesh.nx-1))
-
     for a in range(itera):
-        data1 = [[],[],[]]
-        
+        data = [[],[],[]]
         zlist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
         ylist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
         vzlist = [[],[],[],[],[],[],[],[],[],[],[],[],[]]
 
         Az = Ez*(q/m)
         Ay = Ey*(q/m)
+        z = np.zeros(13)
+        y = np.linspace(-4.5, 4.5, 13)
 
         for b in range(13):                         #軌道計算
             
             t = 0
-            vz0 = data[0][b]
-            vy0 = data[1][b]
-            z0 = 25
-            y0 = data[2][b]
+            vz0 = 0
+            vy0 = 0
+            z0 = z[b]
+            y0 = y[b]
 
             vzlist[b].append(vz0)
             zlist[b].append(z0)
             ylist[b].append(y0)
 
-            while mesh.zmin-0.3<=z0<=mesh.zmax-0.001 and -11.5<=y0<=11.5:
+            while mesh.zmin+1<=z0<=mesh.zmax-0.001 and -11.5<=y0<=11.5:
                 
                 t += H
 
@@ -126,38 +136,53 @@ def calc_trajectory(itera):
                 zlist[b].append(z0)
                 ylist[b].append(y0)
 
-            data1[0].append(vz0)
-            data1[1].append(vy0)
-            data1[2].append(y0)
+            data[0].append(vz0)
+            data[1].append(vy0)
+            data[2].append(y0)
 
-        Ez = np.zeros((mesh.nz-1, mesh.nx-1))
-        Ey = np.zeros((mesh.nz-1, mesh.nx-1))
+        for i in range(mesh.nx -1):                                 #電場リセット
+            for j in range(mesh.nz -1):
+                Ey[i, j] = -(V[i, j] - V[i+1, j])/delta_y
+                Ez[i, j] = -(V[i, j+1] - V[i, j])/delta_z
 
-        for i in range(int(mesh.nz-1)):  #軌道から電場
-
+        iteration = 0
+        for i in range(int((0-mesh.zmin)*mesh.nz/(mesh.zmax-mesh.zmin)), int((12-mesh.zmin)*mesh.nz/(mesh.zmax-mesh.zmin)-1)):  #軌道から電場
+            alpha = 0.5 + iteration*0.5/int(12*mesh.nz/(mesh.zmax-mesh.zmin))
+            iteration = iteration + 1
+            
             y0list = []
             vz0list = []
+
             for j in range(13):
-                if len(zlist[j]) != 0:
-                    y0list.append(getNearestValue(zlist, ylist, mesh.zmin+i*mesh.dz, j))
-                    vz0list.append(getNearestValue(zlist, vzlist, mesh.zmin+i*mesh.dz, j))
-        
+                y0list.append(getNearestValue(zlist, ylist, i*mesh.dz, j))
+                vz0list.append(getNearestValue(zlist, vzlist, i*mesh.dz, j))
+            
             r = np.max(y0list)
             v = np.mean(vz0list)
-            num = len(y0list)
-            co = 13 - num
 
-            for j in range(num):
-                if y0list[j] > 19.5 or y0list[j] < -19.5:
-                    co += 1
-          
             for k in range(int((mesh.ymax-12)*mesh.ny/(mesh.ymax-mesh.ymin))+1, int((mesh.ymax+12)*mesh.ny/(mesh.ymax-mesh.ymin))):
                 if int((mesh.ymax-r)*mesh.ny/(mesh.ymax-mesh.ymin)) <= k <= int((mesh.ymax+r)*mesh.ny/(mesh.ymax-mesh.ymin)): 
-                    Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect1(I*(1-co/13), mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
+                    Ey[k-1, i] = Ey[k-1, i] + alpha*SpaceChargeEffect1(I, mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
                 else:
-                    Ey[k-1, i] = Ey[k-1, i] + SpaceChargeEffect2(I*(1-co/13), mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
-    
-    with open('particles2.binaryfile', 'wb') as particles:
-        pickle.dump(data1, particles)
+                    Ey[k-1, i] = Ey[k-1, i] + alpha*SpaceChargeEffect2(I, mesh.dy, r, v, k-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
 
+        for i in range(int((12-mesh.zmin)*mesh.nz/(mesh.zmax-mesh.zmin)), int((mesh.zmax-mesh.zmin)*mesh.nz/(mesh.zmax-mesh.zmin))-1):  #軌道から電場
+            y0list = []
+            vz0list = []
+            for j in range(11):
+                y0list.append(getNearestValue(zlist, ylist, i*mesh.dz, j))
+                vz0list.append(getNearestValue(zlist, vzlist, i*mesh.dz, j))
+            
+            r = np.max(y0list)
+            v = np.mean(vz0list)
+
+            for k in range(int((mesh.ymax-12)*mesh.ny/(mesh.ymax-mesh.ymin)), int((mesh.ymax+12)*mesh.ny/(mesh.ymax-mesh.ymin))):
+                if int((mesh.ymax-r)*mesh.ny/(mesh.ymax-mesh.ymin)) <= k <= int((mesh.ymax+r)*mesh.ny/(mesh.ymax-mesh.ymin)): 
+                    Ey[k, i] = Ey[k, i] + SpaceChargeEffect1(I, mesh.dy, r, v, k+1-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))
+                else:
+                    Ey[k, i] = Ey[k, i] + SpaceChargeEffect2(I, mesh.dy, r, v, k+1-int(mesh.ymax*mesh.ny/(mesh.ymax-mesh.ymin)))          
+
+    with open('particles1.binaryfile', 'wb') as particles:
+        pickle.dump(data, particles)
+    
     return zlist, ylist
